@@ -1,55 +1,41 @@
 """
-Wrapper to call TypeScript deterministic extractor from Python.
+Wrapper for deterministic knowledge unit extraction.
+
+This module provides a simple interface to the deterministic extractor,
+handling input validation, hash computation, and output formatting.
 """
-import json
-import subprocess
-from pathlib import Path
-from typing import Dict, List, Any, Optional
 import hashlib
+from typing import Dict, Any
+from .deterministic_extractor import (
+    extract_deterministic_units,
+    ExtractOptions,
+    Unit
+)
 
 
 class DeterministicExtractor:
     """
-    Python interface to TypeScript deterministic extractor.
+    Python interface to deterministic extractor.
     
-    Calls Node.js CLI via subprocess, handles JSON serialization,
-    error handling, and timeout management.
+    Provides a clean API for extracting knowledge units from transcripts
+    with deterministic, reproducible results.
     """
     
-    def __init__(
-        self, 
-        node_path: str = "node",
-        timeout: int = 60
-    ):
+    def __init__(self, **kwargs):
         """
         Initialize extractor.
         
-        Args:
-            node_path: Path to node executable (default: "node")
-            timeout: Subprocess timeout in seconds (default: 60)
+        Accepts any keyword arguments for compatibility, but they are not used.
+        The Python implementation has no external dependencies.
         """
-        self.node_path = node_path
-        self.timeout = timeout
-        
-        # Find extractor path (relative to this file)
-        self.extractor_path = Path(__file__).parent.parent.parent / "src" / "extractors" / "deterministic"
-        self.cli_path = self.extractor_path / "src" / "cli" / "extract.js"
-        
-        # Validate paths exist
-        if not self.extractor_path.exists():
-            raise FileNotFoundError(
-                f"Deterministic extractor not found at {self.extractor_path}"
-            )
-        if not self.cli_path.exists():
-            raise FileNotFoundError(
-                f"CLI script not found at {self.cli_path}"
-            )
+        pass
     
     def extract(
         self, 
         video_id: str, 
         transcript: str,
-        include_meta: bool = True
+        include_meta: bool = True,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Extract knowledge units deterministically.
@@ -58,6 +44,7 @@ class DeterministicExtractor:
             video_id: Video identifier
             transcript: Raw transcript text
             include_meta: Include metadata in output (default: True)
+            **kwargs: Additional options passed to extractor
             
         Returns:
             {
@@ -70,91 +57,72 @@ class DeterministicExtractor:
                         'start': int,
                         'end': int,
                         'score': float,
-                        'window': int,
-                        'words': int
+                        'window': int
                     }
                 ],
                 'meta': {  # if include_meta=True
-                    'windows_generated': int,
-                    'candidates_scored': int,
-                    'units_extracted': int,
-                    'extraction_time_ms': int
+                    'extractor_version': str,
+                    'window_chars': int,
+                    'min_words': int,
+                    'max_words': int,
+                    'jaccard_threshold': float,
+                    'per_window_quota': int | None,
+                    'python_version': str
                 }
             }
             
         Raises:
-            RuntimeError: If extraction fails
-            subprocess.TimeoutExpired: If extraction times out
-            json.JSONDecodeError: If output is not valid JSON
+            ValueError: If transcript is empty or invalid
         """
-        # Prepare input
-        input_data = {
+        # Validate inputs
+        if not transcript or not transcript.strip():
+            raise ValueError("Transcript cannot be empty")
+        
+        # Build extraction options from kwargs
+        opts = ExtractOptions(include_meta=include_meta)
+        
+        # Override defaults with any provided kwargs
+        if 'window_chars' in kwargs:
+            opts.window_chars = kwargs['window_chars']
+        if 'target_count' in kwargs:
+            opts.target_count = kwargs['target_count']
+        if 'min_words' in kwargs:
+            opts.min_words = kwargs['min_words']
+        if 'max_words' in kwargs:
+            opts.max_words = kwargs['max_words']
+        if 'jaccard_threshold' in kwargs:
+            opts.jaccard_threshold = kwargs['jaccard_threshold']
+        if 'per_window_quota' in kwargs:
+            opts.per_window_quota = kwargs['per_window_quota']
+        
+        # Extract units
+        result = extract_deterministic_units(transcript, opts)
+        
+        # Compute transcript hash for determinism verification
+        transcript_hash = self.compute_transcript_hash(transcript)
+        
+        # Format output
+        output = {
             'video_id': video_id,
-            'transcript': transcript,
-            'include_meta': include_meta
+            'transcript_hash': transcript_hash,
+            'units': [
+                {
+                    'id': u.id,
+                    'text': u.text,
+                    'start': u.start,
+                    'end': u.end,
+                    'score': u.score,
+                    'window': u.window
+                }
+                for u in result.units
+            ]
         }
         
-        # Call Node.js extractor
-        try:
-            result = subprocess.run(
-                [self.node_path, str(self.cli_path)],
-                input=json.dumps(input_data),
-                capture_output=True,
-                text=True,
-                timeout=self.timeout,
-                check=False  # Don't raise on non-zero exit
-            )
-        except subprocess.TimeoutExpired as e:
-            raise RuntimeError(
-                f"Extraction timed out after {self.timeout}s for video {video_id}"
-            ) from e
-        
-        # Check for errors
-        if result.returncode != 0:
-            error_msg = result.stderr.strip() if result.stderr else "Unknown error"
-            raise RuntimeError(
-                f"Extraction failed for video {video_id}: {error_msg}"
-            )
-        
-        # Parse output
-        try:
-            output = json.loads(result.stdout)
-        except json.JSONDecodeError as e:
-            raise RuntimeError(
-                f"Invalid JSON output from extractor: {result.stdout[:200]}"
-            ) from e
-        
-        # Validate output structure
-        self._validate_output(output)
+        # Add metadata if requested
+        if include_meta and result.meta:
+            output['meta'] = result.meta
         
         return output
-    
-    def _validate_output(self, output: Dict[str, Any]) -> None:
-        """
-        Validate extraction output has required structure.
-        
-        Args:
-            output: Extraction output to validate
-            
-        Raises:
-            ValueError: If output is invalid
-        """
-        required_fields = ['video_id', 'transcript_hash', 'units']
-        missing = [f for f in required_fields if f not in output]
-        if missing:
-            raise ValueError(f"Missing required fields: {missing}")
-        
-        if not isinstance(output['units'], list):
-            raise ValueError("'units' must be a list")
-        
-        # Validate each unit
-        for i, unit in enumerate(output['units']):
-            unit_required = ['id', 'text', 'start', 'end', 'score', 'window']
-            unit_missing = [f for f in unit_required if f not in unit]
-            if unit_missing:
-                raise ValueError(
-                    f"Unit {i} missing required fields: {unit_missing}"
-                )
     
     def compute_transcript_hash(self, transcript: str) -> str:
         """

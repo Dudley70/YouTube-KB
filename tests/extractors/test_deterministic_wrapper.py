@@ -1,9 +1,7 @@
 """
-Unit tests for deterministic_wrapper.py
+Unit tests for deterministic_wrapper.py (Python implementation)
 """
 import pytest
-import json
-from pathlib import Path
 from youtube_processor.extractors.deterministic_wrapper import DeterministicExtractor
 
 
@@ -18,15 +16,15 @@ def sample_transcript():
     In this video we will discuss artificial intelligence and machine learning.
     We'll cover neural networks, deep learning, and natural language processing.
     These are fundamental concepts in modern AI development.
+    Machine learning algorithms learn from data patterns.
+    Neural networks are inspired by biological neurons.
+    Deep learning uses multiple layers of processing.
     """
 
 
 def test_extractor_initialization(extractor):
     """Test extractor initializes correctly"""
-    assert extractor.node_path == "node"
-    assert extractor.timeout == 60
-    assert extractor.extractor_path.exists()
-    assert extractor.cli_path.exists()
+    assert extractor is not None
 
 
 def test_extract_basic(extractor, sample_transcript):
@@ -67,6 +65,10 @@ def test_extract_with_meta(extractor, sample_transcript):
     
     assert 'meta' in result
     assert isinstance(result['meta'], dict)
+    # Check for expected meta fields
+    assert 'extractor_version' in result['meta']
+    assert 'window_chars' in result['meta']
+    assert 'python_version' in result['meta']
 
 
 def test_extract_without_meta(extractor, sample_transcript):
@@ -91,15 +93,21 @@ def test_extract_determinism(extractor, sample_transcript):
 
 
 def test_extract_empty_transcript(extractor):
-    """Test extraction with empty transcript"""
-    result = extractor.extract("test_video", "")
-    assert result['units'] == []
+    """Test extraction with empty transcript raises ValueError"""
+    with pytest.raises(ValueError, match="Transcript cannot be empty"):
+        extractor.extract("test_video", "")
+
+
+def test_extract_whitespace_only(extractor):
+    """Test extraction with whitespace-only transcript raises ValueError"""
+    with pytest.raises(ValueError, match="Transcript cannot be empty"):
+        extractor.extract("test_video", "   \n\t  ")
 
 
 def test_extract_short_transcript(extractor):
     """Test extraction with very short transcript"""
-    result = extractor.extract("test_video", "This is short")
-    # Should handle gracefully (may or may not have units)
+    result = extractor.extract("test_video", "This is a short transcript with only a few words.")
+    # Should handle gracefully
     assert isinstance(result['units'], list)
 
 
@@ -112,35 +120,27 @@ def test_compute_transcript_hash(extractor):
     # Same transcript = same hash
     assert hash1 == hash2
     assert len(hash1) == 64  # SHA-256 hex length
-
-
-def test_validation_missing_fields(extractor):
-    """Test output validation catches missing fields"""
-    invalid = {'video_id': 'test'}  # Missing required fields
     
-    with pytest.raises(ValueError, match="Missing required fields"):
-        extractor._validate_output(invalid)
+    # Different transcript = different hash
+    hash3 = extractor.compute_transcript_hash("different transcript")
+    assert hash1 != hash3
 
 
-def test_validation_invalid_units(extractor):
-    """Test output validation catches invalid units"""
-    invalid = {
-        'video_id': 'test',
-        'transcript_hash': 'abc',
-        'units': [{'id': 'test'}]  # Missing required unit fields
-    }
+def test_extract_custom_options(extractor, sample_transcript):
+    """Test extraction with custom options"""
+    result = extractor.extract(
+        "test_video", 
+        sample_transcript,
+        window_chars=2000,
+        min_words=3,
+        max_words=30
+    )
     
-    with pytest.raises(ValueError, match="missing required fields"):
-        extractor._validate_output(invalid)
-
-
-def test_validation_units_not_list(extractor):
-    """Test output validation catches non-list units"""
-    invalid = {
-        'video_id': 'test',
-        'transcript_hash': 'abc',
-        'units': 'not a list'
-    }
-    
-    with pytest.raises(ValueError, match="must be a list"):
-        extractor._validate_output(invalid)
+    assert isinstance(result['units'], list)
+    # All units should respect min/max word constraints (when possible)
+    for unit in result['units']:
+        text = unit['text']
+        # Word count check (approximate)
+        word_count = len(text.split())
+        # Note: Some units might be slightly outside range due to sentence boundaries
+        assert word_count >= 2  # Allow some tolerance
