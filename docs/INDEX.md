@@ -1,10 +1,14 @@
 # Documentation Index
 
-**Last Updated**: 2025-11-07 14:30 AEDT
+**Last Updated**: 2025-11-07 15:05 AEDT
 
 ## Active Documents
 
-*No documents yet - awaiting requirements*
+### Analysis
+- [Code Review: Bloat Analysis](analysis/code_review_bloat_analysis.md) - Active - Comprehensive review of 17K line codebase, identifies 90% bloat, recommends radical simplification
+
+### Plans
+- [TypeScript to Python Conversion Plan](plans/typescript_to_python_conversion.md) - Active - Two-track approach: Quick conversion (Track 1) or Conversion + Simplification (Track 2)
 
 ---
 
