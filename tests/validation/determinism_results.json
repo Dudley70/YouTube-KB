@@ -1,0 +1,20 @@
+{
+  "total_videos": 1,
+  "deterministic_count": 1,
+  "determinism_rate": 100.0,
+  "results": [
+    {
+      "video_id": "J5B9UGTuNoM",
+      "deterministic": true,
+      "unit_count": 40,
+      "unique_results": 1,
+      "hashes": [
+        "78faf28631f410fa15632771def60262d3f04c7b5eba0d0c90db998790e930b9",
+        "78faf28631f410fa15632771def60262d3f04c7b5eba0d0c90db998790e930b9",
+        "78faf28631f410fa15632771def60262d3f04c7b5eba0d0c90db998790e930b9",
+        "78faf28631f410fa15632771def60262d3f04c7b5eba0d0c90db998790e930b9",
+        "78faf28631f410fa15632771def60262d3f04c7b5eba0d0c90db998790e930b9"
+      ]
+    }
+  ]
+}

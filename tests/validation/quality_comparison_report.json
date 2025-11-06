@@ -1,0 +1,22 @@
+{
+  "comparison_available": true,
+  "videos_analyzed": 1,
+  "videos_with_old_analysis": 0,
+  "avg_new_count": 40.0,
+  "avg_old_count": null,
+  "avg_new_time": 0.038706302642822266,
+  "results": [
+    {
+      "video_id": "J5B9UGTuNoM",
+      "new_unit_count": 40,
+      "new_time": 0.038706302642822266,
+      "new_units_sample": [
+        "You open up the\nterminal and you boot up Claude Co",
+        "You run your\nhandcrafted/scentient\ncommand that sh",
+        "Your agent has gotten so\ngood that it realizes wha"
+      ],
+      "old_unit_count": null,
+      "old_units_sample": null
+    }
+  ]
+}

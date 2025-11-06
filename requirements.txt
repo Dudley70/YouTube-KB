@@ -1,0 +1,31 @@
+# Core CLI dependencies
+click>=8.0.0
+rich>=13.0.0
+questionary>=2.0.0
+
+# YouTube API and processing
+google-api-python-client>=2.0.0
+youtube-transcript-api>=0.6.0
+yt-dlp>=2023.9.0
+isodate>=0.6.0
+
+# LLM API support
+anthropic>=0.39.0
+
+# Network and TOR support
+requests[socks]>=2.31.0
+PySocks>=1.7.0
+
+# Docker support
+PyYAML>=6.0.0
+
+# Testing dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.0.0
+
+# Development tools
+black>=23.0.0
+isort>=5.0.0
+mypy>=1.0.0
+flake8>=6.0.0
